@@ -1,4 +1,4 @@
-[🇪🇸 Español](#español) | [🇬🇧 English](#english)
+[🇪🇸 Español](#-español) | [🇬🇧 English](#-english) 
 
 ## 🇪🇸 Español
 
@@ -181,7 +181,7 @@ Proyecto de preparación para el examen **RHCSA EX200 (RHEL 9)**
 
 ✨ ¡Feliz aprendizaje! ✨
 
-## 🇬🇧 English
+## 🇬🇧 English 
 
 # RHCSA9 Environment (KVM/Libvirt Edition)
 
