@@ -1,0 +1,12 @@
+.vagrant/
+*.qcow2
+*.iso
+*.log
+*.tar.gz
+*.7z
+*.zip
+*.bak
+*.tmp
+*.swp
+*.DS_Store
+*.box

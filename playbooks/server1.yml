@@ -1,0 +1,81 @@
+---
+- name: Setting Up Server 1
+  hosts: server1
+  become: true
+  tasks:
+
+    - name: Ensure chronyd is installed and enabled
+      ansible.builtin.yum:
+        name: chrony
+        state: present
+
+    - name: Start and enable chronyd
+      ansible.builtin.service:
+        name: chronyd
+        state: started
+        enabled: true
+
+    - name: Set timezone to America/Mexico_City
+      ansible.builtin.command:
+        cmd: timedatectl set-timezone America/Mexico_City
+
+    - name: Install tools and editors
+      ansible.builtin.yum:
+        name:
+          - vim
+          - nano
+          - bash-completion
+          - net-tools
+          - lsof
+          - telnet
+          - bind-utils
+        state: present
+
+    - name: Create user 'operador'
+      ansible.builtin.user:
+        name: operador
+        groups: wheel
+        append: yes
+
+    - name: Set password for 'operador'
+      ansible.builtin.shell: echo "password" | passwd --stdin operador
+      args:
+        executable: /bin/bash
+
+    - name: Disable SELinux
+      ansible.posix.selinux:
+        state: disabled
+
+    - name: Set hostname explicitly
+      ansible.builtin.hostname:
+        name: server1.nine.example.com
+
+    - name: Add repo server to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "192.168.55.149 repo.nine.example.com"
+        state: present
+
+    - name: Configure YUM to use local repo
+      ansible.builtin.copy:
+        dest: /etc/yum.repos.d/local.repo
+        content: |
+          [BaseOS]
+          name=Rocky BaseOS
+          baseurl=http://repo.nine.example.com/BaseOS
+          enabled=1
+          gpgcheck=0
+
+          [AppStream]
+          name=Rocky AppStream
+          baseurl=http://repo.nine.example.com/AppStream
+          enabled=1
+          gpgcheck=0
+
+    - name: Clean and make cache
+      ansible.builtin.shell: |
+        dnf clean all
+        dnf makecache
+      args:
+        executable: /bin/bash
+

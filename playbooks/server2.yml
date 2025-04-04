@@ -1,0 +1,96 @@
+---
+- name: Configuración de Server 2
+  hosts: server2
+  become: yes
+
+  vars:
+    operador_user: operador
+    operador_password: '$6$RHCSA9LAB2025$y3tMwM8Ki95xyoV4mr30rglPlww.5VRZL4K7N9EfqVWyQF99MNB0v3NNZqEyoeOX2le3FLQyeIt1E1v2Z4kIU/'
+
+  tasks:
+    - name: Establecer zona horaria
+      timezone:
+        name: America/Mexico_City
+
+    - name: Instalar herramientas esenciales
+      dnf:
+        name:
+          - bash-completion
+          - vim
+          - wget
+          - curl
+          - lsof
+          - man
+          - firewalld
+        state: present
+
+    - name: Crear usuario operador
+      user:
+        name: "{{ operador_user }}"
+        password: "{{ operador_password }}"
+        shell: /bin/bash
+        groups: wheel
+        append: yes
+        state: present
+
+    - name: Deshabilitar SELinux temporalmente
+      command: setenforce 0
+      ignore_errors: yes
+
+    - name: Deshabilitar SELinux permanentemente
+      replace:
+        path: /etc/selinux/config
+        regexp: '^SELINUX=enforcing'
+        replace: 'SELINUX=disabled'
+
+    - name: Configurar fstab para montar los discos etiquetados
+      blockinfile:
+        path: /etc/fstab
+        block: |
+          LABEL=extradisk1 /extradisk1 ext4 defaults 0 0
+          LABEL=extradisk2 /extradisk2 ext4 defaults 0 0
+        marker: "# {mark} RHCSA LAB MOUNTS"
+
+    - name: Crear directorios de montaje si no existen
+      file:
+        path: "/extradisk{{ item }}"
+        state: directory
+      loop:
+        - 1
+        - 2
+
+    - name: Montar discos
+      command: mount -a
+      ignore_errors: yes
+
+    - name: Add repo server to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "192.168.55.149 repo.nine.example.com"
+        state: present
+
+    - name: Configurar red para usar repositorio local
+      copy:
+        dest: /etc/yum.repos.d/local.repo
+        content: |
+          [BaseOS]
+          name=BaseOS
+          baseurl=http://192.168.55.149/BaseOS
+          enabled=1
+          gpgcheck=0
+
+          [AppStream]
+          name=AppStream
+          baseurl=http://192.168.55.149/AppStream
+          enabled=1
+          gpgcheck=0
+
+    - name: Limpiar caché de DNF
+      command: dnf clean all
+
+    - name: Crear archivo de status
+      copy:
+        dest: /root/.rhcsa_ready
+        content: "server2 listo para pruebas RHCSA."
+        mode: '0600'
+

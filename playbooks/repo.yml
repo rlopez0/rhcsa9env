@@ -1,0 +1,89 @@
+---
+- name: Configure Repo Server
+  hosts: repo.nine.example.com
+  become: true
+  tasks:
+    - name: Install required packages
+      dnf:
+        name:
+          - python3-pip
+          - python3-devel
+          - httpd
+          - vsftpd
+          - createrepo
+        state: present
+
+    - name: Enable and start services
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - httpd
+        - vsftpd
+
+    - name: Create directories for repo
+      file:
+        path: "/var/ftp/pub/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - BaseOS
+        - AppStream
+          
+    - name: Create local repo source folders if not exist
+      file:
+        path: "/vagrant/repos/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - BaseOS
+        - AppStream
+
+    - name: Synchronize BaseOS content (example only)
+      command: >
+        rsync -av /vagrant/repos/BaseOS/ /var/ftp/pub/BaseOS/
+      when: ansible_facts['distribution'] == 'Rocky'
+
+    - name: Synchronize AppStream content (example only)
+      command: >
+        rsync -av /vagrant/repos/AppStream/ /var/ftp/pub/AppStream/
+      when: ansible_facts['distribution'] == 'Rocky'
+
+    - name: Run createrepo
+      command: createrepo /var/ftp/pub/{{ item }}
+      loop:
+        - BaseOS
+        - AppStream
+
+    - name: Configure firewall to allow FTP and HTTP
+      firewalld:
+        service: "{{ item }}"
+        permanent: true
+        state: enabled
+        immediate: yes
+      loop:
+        - ftp
+        - http
+
+    - name: Reload firewalld
+      service:
+        name: firewalld
+        state: reloaded
+
+    - name: Create repo file for clients
+      copy:
+        dest: "/vagrant/client.repo"
+        content: |
+          [BaseOS]
+          name=BaseOS
+          baseurl=ftp://192.168.55.149/pub/BaseOS
+          enabled=1
+          gpgcheck=0
+
+          [AppStream]
+          name=AppStream
+          baseurl=ftp://192.168.55.149/pub/AppStream
+          enabled=1
+          gpgcheck=0
+

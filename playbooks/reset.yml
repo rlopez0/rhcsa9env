@@ -1,0 +1,335 @@
+---
+- name: Resetting Server 1
+  hosts: server1
+  strategy: free
+  gather_facts: false
+  ignore_errors: true
+  tasks:
+    - name: Set default Python symlink to python3
+      file:
+        src: /usr/bin/python3
+        path: /usr/bin/python
+        state: link
+
+    - name: Set hostname
+      hostname:
+        name: server1.nine.example.com
+
+    - name: Configure static network
+      shell: nmcli con mod "System eth1" ipv4.addresses 192.168.55.150/24 ipv4.gateway 192.168.55.1 ipv4.dns 8.8.8.8 ipv4.dns-search nine.example.com ipv4.method manual
+
+    - name: Restart NetworkManager
+      service:
+        name: NetworkManager
+        state: restarted
+
+    - name: Rebuild /etc/hosts
+      copy:
+        dest: /etc/hosts
+        content: |
+          127.0.0.1   localhost localhost.localdomain
+          ::1         localhost localhost.localdomain
+          192.168.55.149 repo.nine.example.com repo
+          192.168.55.150 server1.nine.example.com server1
+          192.168.55.151 server2.nine.example.com server2
+
+    - name: Disable IP forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '0'
+        sysctl_set: yes
+
+    - name: Set timezone
+      timezone:
+        name: America/Mexico_City
+
+    - name: Clean yum repo files
+      file:
+        path: /etc/yum.repos.d/
+        state: absent
+        recurse: yes
+
+    - name: Clean web server files
+      file:
+        path: /var/www/html/
+        state: absent
+        recurse: yes
+
+    - name: Remove optional shell script
+      file:
+        path: /awesome.sh
+        state: absent
+
+    - name: Remove unwanted users
+      user:
+        name: "{{ item }}"
+        state: absent
+        remove: yes
+      loop:
+        - phil
+        - laura
+        - stewart
+        - kevin
+
+    - name: Remove added directories
+      file:
+        path: "/{{ item }}"
+        state: absent
+      loop:
+        - accounting
+        - marketing
+
+    - name: Remove temporary files
+      file:
+        path: "/{{ item }}"
+        state: absent
+      loop:
+        - tmp
+        - find
+
+    - name: Fix GRUB command line
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: 'GRUB_CMDLINE_LINUX="crashkernel=auto resume=UUID=$(blkid -s UUID -o value /dev/sdX1) rhgb quiet net.ifnames=0 biosdevname=0"'
+
+    - name: Restart services
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      loop:
+        - firewalld
+        - httpd
+
+    - name: Enable firewall services
+      firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: yes
+        immediate: yes
+      loop:
+        - http
+        - https
+        - ntp
+        - dns
+        - ftp
+
+    - name: Reload firewall
+      service:
+        name: firewalld
+        state: restarted
+
+    - name: Enable IPv6
+      sysctl:
+        name: "{{ item }}"
+        value: '0'
+        sysctl_set: yes
+      loop:
+        - net.ipv6.conf.lo.disable_ipv6
+        - net.ipv6.conf.all.disable_ipv6
+
+    - name: Set vagrant password
+      shell: echo vagrant | passwd vagrant --stdin
+
+    - name: Set root password
+      shell: echo password | passwd root --stdin
+
+    - name: Create welcome message script
+      copy:
+        dest: /etc/profile.d/welcome.sh
+        mode: 0755
+        content: |
+          #!/bin/bash
+          echo -e '
+          # Welcome to Server1 - RHCSA Lab Environment
+          # Hostname: $(hostname)
+          # User: $(whoami)
+          # OS: $(cat /etc/redhat-release)
+          #
+          # Use sudo for elevated privileges.
+          # Local Repos:
+          # - http://repo.nine.example.com/BaseOS
+          # - http://repo.nine.example.com/AppStream
+          '
+    - name: Set SELinux to permissive
+      selinux:
+        state: permissive
+        policy: targeted
+
+    - name: Reboot Server 1
+      reboot:
+# ----------------------------------------------------------------------
+
+- name: Resetting Server 2
+  hosts: server2
+  strategy: free
+  gather_facts: false
+  ignore_errors: true
+  tasks:
+    - name: Set default Python symlink to python3
+      file:
+        src: /usr/bin/python3
+        path: /usr/bin/python
+        state: link
+
+    - name: Set hostname
+      hostname:
+        name: server2.nine.example.com
+
+    - name: Configure static network
+      shell: nmcli con mod "System eth1" ipv4.addresses 192.168.55.151/24 ipv4.gateway 192.168.55.1 ipv4.dns 8.8.8.8 ipv4.dns-search nine.example.com ipv4.method manual
+
+    - name: Restart NetworkManager
+      service:
+        name: NetworkManager
+        state: restarted
+
+    - name: Rebuild /etc/hosts
+      copy:
+        dest: /etc/hosts
+        content: |
+          127.0.0.1   localhost localhost.localdomain
+          ::1         localhost localhost.localdomain
+          192.168.55.149 repo.nine.example.com repo
+          192.168.55.150 server1.nine.example.com server1
+          192.168.55.151 server2.nine.example.com server2
+
+    - name: Disable IP forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '0'
+        sysctl_set: yes
+
+    - name: Set timezone
+      timezone:
+        name: America/Mexico_City
+
+    - name: Remove web server files
+      file:
+        path: /var/www/html/
+        state: absent
+        recurse: yes
+
+    - name: Remove optional shell script
+      file:
+        path: /awesome.sh
+        state: absent
+
+    - name: Remove unwanted users
+      user:
+        name: "{{ item }}"
+        state: absent
+        remove: yes
+      loop:
+        - phil
+        - laura
+        - stewart
+        - kevin
+
+    - name: Remove added directories
+      file:
+        path: "/{{ item }}"
+        state: absent
+      loop:
+        - accounting
+        - marketing
+
+    - name: Remove temporary files
+      file:
+        path: "/{{ item }}"
+        state: absent
+      loop:
+        - tmp
+        - find
+
+    - name: Fix GRUB command line
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: 'GRUB_CMDLINE_LINUX="crashkernel=auto resume=UUID=$(blkid -s UUID -o value /dev/sdX1) rhgb quiet net.ifnames=0 biosdevname=0"'
+
+    - name: Wipe extra disk partitions (if any)
+      parted:
+        device: /dev/sdb
+        number: '{{ item.num }}'
+        state: absent
+      loop: "{{ (lookup('community.general.parted', '/dev/sdb', unit='MiB')).partitions | default([]) }}"
+
+    - name: Create dummy repo file
+      copy:
+        dest: /etc/yum.repos.d/rpms.repo
+        content: |
+          [base]
+          name=Base
+          baseurl=http://repo/BaseOS
+          gpgcheck=0
+          enabled=1
+
+          [apps]
+          name=Apps
+          baseurl=http://repo/AppStream
+          gpgcheck=0
+          enabled=1
+
+    - name: Install minimal package
+      yum:
+        name: man-pages
+        state: present
+
+    - name: Restart essential services
+      service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - firewalld
+        - httpd
+
+    - name: Remove repos again (cleanup)
+      file:
+        path: /etc/yum.repos.d/
+        state: absent
+        recurse: yes
+
+    - name: Set vagrant password
+      shell: echo vagrant | passwd vagrant --stdin
+
+    - name: Set root password
+      shell: echo password | passwd root --stdin
+
+    - name: Create welcome message script
+      copy:
+        dest: /etc/profile.d/welcome.sh
+        mode: 0755
+        content: |
+          #!/bin/bash
+          echo -e '
+          # Welcome to Server2 - RHCSA Lab Environment
+          # Hostname: $(hostname)
+          # User: $(whoami)
+          # OS: $(cat /etc/redhat-release)
+          #
+          # Use sudo for elevated privileges.
+          # Local Repos:
+          # - http://repo.nine.example.com/BaseOS
+          # - http://repo.nine.example.com/AppStream
+          # Additional interfaces and a disk are configured.
+          '
+
+    - name: Set SELinux to permissive
+      selinux:
+        state: permissive
+        policy: targeted
+
+    - name: Reboot Server 2
+      reboot:
+
+    - name: Final message
+      debug:
+        msg:
+          - 'Server 1 and Server 2 have been reset successfully!'
+          - 'Ready for RHCSA practice. Access via:'
+          - '- Server1: 192.168.55.150'
+          - '- Server2: 192.168.55.151'
+          - '- Login: vagrant/vagrant or root/password'
